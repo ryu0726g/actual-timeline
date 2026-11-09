@@ -13,7 +13,7 @@
 :root{--bg:#f6f6f3;--card:#fff;--text:#111;--muted:#777;--line:#e4e4df}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;padding-bottom:160px}
 .wrap{max-width:720px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px 30px}
-h1{font-size:29px;margin:0 0 6px}.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+h1{font-size:29px;margin:0 0 6px}.titleline{display:flex;align-items:baseline;gap:8px}.version{font-size:11px;color:#999;font-weight:700;white-space:nowrap}.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.05)}
 .mainbtn{width:100%;border:0;border-radius:16px;background:#111;color:#fff;padding:18px;font-size:18px;font-weight:800}
 .quickbar{position:fixed;left:0;right:0;bottom:calc(66px + env(safe-area-inset-bottom));z-index:20;padding:10px 16px;background:linear-gradient(to top,rgba(246,246,243,.98),rgba(246,246,243,.88),rgba(246,246,243,0))}
@@ -38,7 +38,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <h1>今日の実績</h1><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.3.1</span></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
