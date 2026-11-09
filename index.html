@@ -22,7 +22,11 @@ h1{font-size:29px;margin:0 0 6px}.titleline{display:flex;align-items:baseline;ga
 .history-add{margin:0 0 12px;width:100%}
 h2{font-size:16px;margin:22px 2px 10px}.entry{display:grid;grid-template-columns:78px 12px 1fr;gap:9px;min-height:70px}
 .time{font-size:12px;color:var(--muted);text-align:right;padding-top:12px;line-height:1.35}.rail{position:relative}.rail:before{content:"";position:absolute;left:5px;top:0;bottom:0;width:2px;background:var(--line)}.dot{position:absolute;left:1px;top:16px;width:10px;height:10px;border-radius:50%;background:#111;border:2px solid var(--bg)}
-.ecard{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px 13px;margin-bottom:9px;display:flex;justify-content:space-between;gap:12px}.txt{font-size:15px;line-height:1.5}.meta{font-size:11px;color:var(--muted);margin-top:3px}.more{border:0;background:none;color:#777;font-size:18px}
+.ecard{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px 13px;margin-bottom:9px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.txt{font-size:15px;line-height:1.5}.meta{font-size:11px;color:var(--muted);margin-top:3px}
+.item-actions{display:flex;gap:6px;flex:0 0 auto}
+.item-action{width:34px;height:34px;border:1px solid var(--line);background:#fff;border-radius:10px;display:grid;place-items:center;padding:0;color:#555;-webkit-tap-highlight-color:transparent}
+.item-action svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.item-action.delete{color:#a33}
 .empty{border:1px dashed #ccc;border-radius:17px;padding:28px 14px;text-align:center;color:#777}
 nav{position:fixed;bottom:0;left:0;right:0;background:rgba(250,250,248,.95);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
 .navi{max-width:720px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.navbtn{border:0;background:none;border-radius:12px;padding:10px 4px;color:#777;font-weight:700}.navbtn.on{background:#111;color:#fff}
@@ -48,7 +52,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.4</span></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.5</span></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -110,7 +114,12 @@ function load(){try{entries=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Arra
 function save(){localStorage.setItem(KEY,JSON.stringify(entries));render()}
 function list(k){return entries.filter(function(e){return e.date===k}).sort(function(a,b){return new Date(a.end)-new Date(b.end)})}
 function dur(a,b){if(!a||!b)return '';var m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)),h=Math.floor(m/60),r=m%60;return h?(h+'時間'+(r?r+'分':'')):(r+'分')}
-function draw(el,arr){if(!arr.length){el.innerHTML='<div class="empty">まだ記録がありません。</div>';return}el.innerHTML=arr.map(function(e){return '<div class="entry"><div class="time">'+time(e.start)+'<br>→ '+time(e.end)+'</div><div class="rail"><span class="dot"></span></div><div class="ecard"><div><div class="txt">'+esc(e.text)+'</div><div class="meta">'+dur(e.start,e.end)+'</div></div><button class="more" data-id="'+e.id+'">•••</button></div></div>'}).join('')}
+function draw(el,arr){
+  if(!arr.length){el.innerHTML='<div class="empty">まだ記録がありません。</div>';return}
+  el.innerHTML=arr.map(function(e){
+    return '<div class="entry"><div class="time">'+time(e.start)+'<br>→ '+time(e.end)+'</div><div class="rail"><span class="dot"></span></div><div class="ecard"><div><div class="txt">'+esc(e.text)+'</div><div class="meta">'+dur(e.start,e.end)+'</div></div><div class="item-actions"><button class="item-action" data-edit="'+e.id+'" aria-label="編集"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button><button class="item-action delete" data-delete="'+e.id+'" aria-label="削除"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></button></div></div></div>'
+  }).join('')
+}
 function renderToday(){var a=list(key(new Date()));q('#count').textContent=a.length+'件';draw(q('#timeline'),a)}
 function renderCal(){var y=cursor.getFullYear(),m=cursor.getMonth();q('#month').textContent=y+'年 '+(m+1)+'月';q('#week').innerHTML=['日','月','火','水','木','金','土'].map(function(x){return '<div class="wd">'+x+'</div>'}).join('');var first=new Date(y,m,1),start=first.getDay(),last=new Date(y,m+1,0).getDate(),html='';for(var i=0;i<42;i++){var dt;if(i<start)dt=new Date(y,m,i-start+1);else if(i>=start+last)dt=new Date(y,m+1,i-start-last+1);else dt=new Date(y,m,i-start+1);var k=key(dt),cls='day'+(k===picked?' sel':'')+(k===key(new Date())?' today':'');html+='<button class="'+cls+'" data-day="'+k+'">'+dt.getDate()+(list(k).length?'<span class="mark"></span>':'')+'</button>'}q('#days').innerHTML=html;q('#pickedTitle').textContent=picked;draw(q('#picked'),list(picked))}
 function render(){renderToday();renderCal()}
@@ -137,7 +146,7 @@ function openHistoryAdd(){
   for(var i=0;i<a.length-1;i++){
     var prev=a[i],next=a[i+1];
     if(!next.start)continue;
-    slots.push('<button class="slot-btn" data-slot-prev="'+prev.id+'" data-slot-next="'+next.id+'"><span class="slot-name">'+esc(prev.text)+'</span><span class="slot-time">元の時間：'+time(prev.start)+'〜'+time(prev.end)+'</span><span class="slot-arrow">↓ この間に追加</span><span class="slot-name">'+esc(next.text)+'</span><span class="slot-time">元の時間：'+time(next.start)+'〜'+time(next.end)+'</span></button>');
+    slots.push('<button class="slot-btn" data-slot-prev="'+prev.id+'" data-slot-next="'+next.id+'"><span class="slot-name">'+esc(prev.text)+'</span><span class="slot-time">'+time(prev.start)+'〜'+time(prev.end)+'</span><span class="slot-arrow">↓ この間に追加</span><span class="slot-name">'+esc(next.text)+'</span><span class="slot-time">'+time(next.start)+'〜'+time(next.end)+'</span></button>');
   }
   if(!slots.length){alert('追加できる区間がありません。');return}
   q('#slotDateLabel').textContent=jpDate(modalDate);
@@ -150,7 +159,7 @@ function chooseHistorySlot(prevId,nextId){
   editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;modalDate=prev.date;
   setEntryFields(entryMode);
   q('#dtitle').textContent='この間に記録を追加';
-  q('#modalDateLabel').textContent=jpDate(modalDate)+'　'+prev.text+' → '+next.text;
+  q('#modalDateLabel').textContent=jpDate(modalDate)+'　'+prev.text+' '+time(prev.start)+'〜'+time(prev.end)+' → '+next.text+' '+time(next.start)+'〜'+time(next.end);
   q('#text').value='';q('#start').value=prev.end?timeOnly(new Date(prev.end)):'';q('#end').value='';
   q('#autoEnd').textContent='開始時刻は前の「'+prev.text+'」の終了時刻 '+time(prev.end)+' に自動設定されます。入力した終了時刻が、次の「'+next.text+'」の新しい開始時刻になります。';
   q('#slotDlg').close();q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
@@ -217,9 +226,50 @@ q('#form').onsubmit=function(ev){
   q('#dlg').close();editing=null;entryMode='quick';setEntryFields(entryMode);save()
 }
 document.addEventListener('click',function(ev){
-var slot=ev.target.closest('[data-slot-prev]');
-if(slot){chooseHistorySlot(slot.dataset.slotPrev,slot.dataset.slotNext);return}
-var b=ev.target.closest('[data-id]');if(b){var id=b.dataset.id,act=prompt('「編集」または「削除」と入力してください');if(act==='削除'){if(confirm('削除しますか？')){entries=entries.filter(function(x){return x.id!==id});save()}}else if(act==='編集'){var x=entries.find(function(z){return z.id===id});editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;modalDate=x.date;setEntryFields(entryMode);q('#dtitle').textContent='記録を編集';q('#modalDateLabel').textContent=jpDate(modalDate);q('#text').value=x.text;q('#start').value=x.start?timeOnly(new Date(x.start)):'';q('#end').value=timeOnly(new Date(x.end));q('#dlg').showModal()}return}var d=ev.target.closest('[data-day]');if(d){picked=d.dataset.day;var p=picked.split('-');cursor=new Date(+p[0],+p[1]-1,1);renderCal()}})
+  var slot=ev.target.closest('[data-slot-prev]');
+  if(slot){chooseHistorySlot(slot.dataset.slotPrev,slot.dataset.slotNext);return}
+
+  var editBtn=ev.target.closest('[data-edit]');
+  if(editBtn){
+    var id=editBtn.dataset.edit;
+    var x=entries.find(function(z){return z.id===id});
+    if(!x)return;
+    editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;modalDate=x.date;setEntryFields(entryMode);
+    q('#dtitle').textContent='記録を編集';
+    q('#modalDateLabel').textContent=jpDate(modalDate);
+    q('#text').value=x.text;
+    q('#start').value=x.start?timeOnly(new Date(x.start)):'';
+    q('#end').value=timeOnly(new Date(x.end));
+    q('#dlg').showModal();
+    return;
+  }
+
+  var deleteBtn=ev.target.closest('[data-delete]');
+  if(deleteBtn){
+    var id=deleteBtn.dataset.delete;
+    var target=entries.find(function(x){return x.id===id});
+    if(!target)return;
+    if(confirm('本当に削除しますか？')){
+      var same=list(target.date);
+      var idx=same.findIndex(function(x){return x.id===id});
+      var next=idx>=0 && idx<same.length-1 ? same[idx+1] : null;
+      if(next && target.start){
+        next.start=target.start;
+      }
+      entries=entries.filter(function(x){return x.id!==id});
+      save();
+    }
+    return;
+  }
+
+  var d=ev.target.closest('[data-day]');
+  if(d){
+    picked=d.dataset.day;
+    var p=picked.split('-');
+    cursor=new Date(+p[0],+p[1]-1,1);
+    renderCal();
+  }
+})
 qa('.navbtn').forEach(function(b){b.onclick=function(){qa('.navbtn').forEach(function(x){x.classList.remove('on')});b.classList.add('on');qa('.view').forEach(function(x){x.classList.remove('on')});q('#'+b.dataset.v).classList.add('on');q('#quickbar').style.display=b.dataset.v==='today'?'block':'none'}})
 q('#prev').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1);renderCal()};q('#next').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);renderCal()}
 function makeText(a){var g={};a.slice().sort(function(x,y){return new Date(x.end)-new Date(y.end)}).forEach(function(e){(g[e.date]||(g[e.date]=[])).push(e)});return Object.keys(g).map(function(k){return k+'\n'+g[k].map(function(e){return time(e.start)+'-'+time(e.end)+' '+e.text}).join('\n')}).join('\n\n')}
