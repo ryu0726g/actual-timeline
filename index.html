@@ -29,7 +29,10 @@ nav{position:fixed;bottom:0;left:0;right:0;background:rgba(250,250,248,.95);back
 .view{display:none}.view.on{display:block}
 .cal{background:#fff;border:1px solid var(--line);border-radius:20px;padding:14px}.calhead{display:flex;justify-content:space-between;align-items:center}.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}.wd{text-align:center;color:#888;font-size:11px}.day{aspect-ratio:1;border:0;background:none;border-radius:12px;position:relative}.day.sel{background:#111;color:#fff}.day.today{outline:2px solid #111;font-weight:800}.mark{position:absolute;width:5px;height:5px;background:currentColor;border-radius:50%;bottom:4px;left:50%;transform:translateX(-50%)}
 .smallbtn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;font-weight:700}.row{display:flex;gap:8px;flex-wrap:wrap}.data{margin-bottom:12px}.data p{font-size:13px;color:#777;line-height:1.6}
-dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 25px 70px rgba(0,0,0,.25)}dialog::backdrop{background:rgba(0,0,0,.28)}.modal{padding:18px}.modal h3{margin:0 0 10px}.modal textarea{width:100%;min-height:110px;border:1px solid #ccc;border-radius:14px;padding:13px;font-size:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.fields input{width:100%;padding:10px;border:1px solid #ccc;border-radius:11px}.actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}.actions button{padding:12px;border-radius:13px;font-weight:800}.cancel{border:1px solid var(--line);background:#fff}.save{border:0;background:#111;color:#fff}
+dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 25px 70px rgba(0,0,0,.25)}dialog::backdrop{background:rgba(0,0,0,.28)}.modal{padding:18px}.modal h3{margin:0 0 10px}.modal textarea{width:100%;min-height:110px;border:1px solid #ccc;border-radius:14px;padding:13px;font-size:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.timefield{display:block;font-size:12px;font-weight:800;color:#333}
+.timefield span{display:block;font-size:10px;font-weight:500;color:#888;margin:2px 0 6px}
+.fields input{width:100%;padding:13px 10px;border:1px solid #bbb;border-radius:12px;background:#fff;font-size:17px;font-weight:700}.actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}.actions button{padding:12px;border-radius:13px;font-weight:800}.cancel{border:1px solid var(--line);background:#fff}.save{border:0;background:#111;color:#fff}
 </style>
 </head>
 <body>
@@ -61,14 +64,27 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <div class="quickbar" id="quickbar"><div class="quickbar-inner"><button class="mainbtn" id="add">＋ 今まで何してた？</button></div></div>
 <nav><div class="navi"><button class="navbtn on" data-v="today">今日</button><button class="navbtn" data-v="history">履歴</button><button class="navbtn" data-v="data">データ</button></div></nav>
 
-<dialog id="dlg"><form method="dialog" class="modal" id="form"><h3 id="dtitle">今まで何してた？</h3><textarea id="text" placeholder="例：卒論のフォームを修正した" required></textarea><div class="fields"><input id="start" type="datetime-local"><input id="end" type="datetime-local" required></div><div class="actions"><button type="button" class="cancel" id="cancel">キャンセル</button><button class="save" type="submit">記録する</button></div></form></dialog>
+<dialog id="dlg"><form method="dialog" class="modal" id="form">
+    <h3 id="dtitle">今まで何してた？</h3>
+    <div class="sub" id="modalDateLabel" style="margin-bottom:12px"></div>
+    <textarea id="text" placeholder="例：卒論のフォームを修正した" required></textarea>
+    <div class="fields">
+      <label class="timefield">開始時刻<span>タップして変更</span><input id="start" type="time"></label>
+      <label class="timefield">終了時刻<span>タップして変更</span><input id="end" type="time" required></label>
+    </div>
+    <div class="actions"><button type="button" class="cancel" id="cancel">キャンセル</button><button class="save" type="submit">記録する</button></div>
+  </form></dialog>
 
 <script>
 (function(){
-var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', cursor=new Date(), picked=key(new Date());
+var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), cursor=new Date(), picked=key(new Date());
 function q(s){return document.querySelector(s)} function qa(s){return Array.from(document.querySelectorAll(s))}
 function pad(n){return String(n).padStart(2,'0')} function key(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-function local(d){return key(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())} function time(v){if(!v)return '—';var d=new Date(v);return pad(d.getHours())+':'+pad(d.getMinutes())}
+function local(d){return key(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}
+function timeOnly(d){return pad(d.getHours())+':'+pad(d.getMinutes())}
+function combine(dateKey,timeStr){if(!dateKey||!timeStr)return null;var p=dateKey.split('-'),t=timeStr.split(':');return new Date(+p[0],+p[1]-1,+p[2],+t[0],+t[1],0,0)}
+function jpDate(k){var p=k.split('-');return (+p[1])+'月'+(+p[2])+'日'}
+function time(v){if(!v)return '—';var d=new Date(v);return pad(d.getHours())+':'+pad(d.getMinutes())}
 function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
 function load(){try{entries=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(entries))entries=[]}catch(e){entries=[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(entries));render()}
@@ -79,11 +95,61 @@ function renderToday(){var a=list(key(new Date()));q('#count').textContent=a.len
 function renderCal(){var y=cursor.getFullYear(),m=cursor.getMonth();q('#month').textContent=y+'年 '+(m+1)+'月';q('#week').innerHTML=['日','月','火','水','木','金','土'].map(function(x){return '<div class="wd">'+x+'</div>'}).join('');var first=new Date(y,m,1),start=first.getDay(),last=new Date(y,m+1,0).getDate(),html='';for(var i=0;i<42;i++){var dt;if(i<start)dt=new Date(y,m,i-start+1);else if(i>=start+last)dt=new Date(y,m+1,i-start-last+1);else dt=new Date(y,m,i-start+1);var k=key(dt),cls='day'+(k===picked?' sel':'')+(k===key(new Date())?' today':'');html+='<button class="'+cls+'" data-day="'+k+'">'+dt.getDate()+(list(k).length?'<span class="mark"></span>':'')+'</button>'}q('#days').innerHTML=html;q('#pickedTitle').textContent=picked;draw(q('#picked'),list(picked))}
 function render(){renderToday();renderCal()}
 function prevEnd(k,end){var a=list(k).filter(function(e){return e.id!==editing&&new Date(e.end)<=end});return a.length?a[a.length-1].end:null}
-function openNew(){editing=null;entryMode='quick';var d=new Date(),pv=prevEnd(key(d),d);q('#dtitle').textContent='今まで何してた？';q('#text').value='';q('#end').value=local(d);q('#start').value=pv?local(new Date(pv)):'';q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)}
-function openHistoryAdd(){editing=null;entryMode='history';var now=new Date(),p=picked.split('-'),end=new Date(+p[0],+p[1]-1,+p[2],now.getHours(),now.getMinutes()),start=new Date(end.getTime()-60*60*1000);q('#dtitle').textContent='この日に記録を追加';q('#text').value='';q('#start').value=local(start);q('#end').value=local(end);q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)}
+function openNew(){
+  editing=null;entryMode='quick';var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
+  q('#dtitle').textContent='今まで何してた？';q('#modalDateLabel').textContent=jpDate(modalDate);
+  q('#text').value='';q('#end').value=timeOnly(d);q('#start').value=pv?timeOnly(new Date(pv)):'';
+  q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
+}
+function openHistoryAdd(){
+  editing=null;entryMode='history';modalDate=picked;
+  q('#dtitle').textContent='この日に記録を追加';q('#modalDateLabel').textContent=jpDate(modalDate);
+  q('#text').value='';q('#start').value='';q('#end').value='';
+  q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
+}
 q('#add').onclick=openNew;q('#addHistory').onclick=openHistoryAdd;q('#cancel').onclick=function(){q('#dlg').close()}
-q('#form').onsubmit=function(ev){ev.preventDefault();var t=q('#text').value.trim(),e=new Date(q('#end').value),s=q('#start').value?new Date(q('#start').value):null;if(!t||isNaN(e))return;if(entryMode==='history'&&!s){alert('履歴への追加では開始時刻も入力してください');return}var k=key(e);if(!s&&entryMode==='quick'){var p=prevEnd(k,e);if(p)s=new Date(p)}if(s&&s>e){alert('開始時刻が終了時刻より後です');return}if(editing){var ix=entries.findIndex(function(x){return x.id===editing});entries[ix]={id:editing,text:t,date:k,start:s?s.toISOString():null,end:e.toISOString()}}else entries.push({id:Date.now()+'-'+Math.random(),text:t,date:k,start:s?s.toISOString():null,end:e.toISOString()});q('#dlg').close();editing=null;entryMode='quick';save()}
-document.addEventListener('click',function(ev){var b=ev.target.closest('[data-id]');if(b){var id=b.dataset.id,act=prompt('「編集」または「削除」と入力してください');if(act==='削除'){if(confirm('削除しますか？')){entries=entries.filter(function(x){return x.id!==id});save()}}else if(act==='編集'){var x=entries.find(function(z){return z.id===id});editing=id;entryMode='edit';q('#dtitle').textContent='記録を編集';q('#text').value=x.text;q('#start').value=x.start?local(new Date(x.start)):'';q('#end').value=local(new Date(x.end));q('#dlg').showModal()}return}var d=ev.target.closest('[data-day]');if(d){picked=d.dataset.day;var p=picked.split('-');cursor=new Date(+p[0],+p[1]-1,1);renderCal()}})
+q('#form').onsubmit=function(ev){
+  ev.preventDefault();
+  var t=q('#text').value.trim(), e=combine(modalDate,q('#end').value), s=q('#start').value?combine(modalDate,q('#start').value):null;
+  if(!t||!e)return;
+  if((entryMode==='history'||entryMode==='edit')&&!s){alert('開始時刻を選んでください');return}
+  if(!s&&entryMode==='quick'){var p=prevEnd(modalDate,e);if(p)s=new Date(p)}
+  if(s&&s>=e){alert('終了時刻は開始時刻より後にしてください');return}
+
+  var others=entries.filter(function(x){return x.id!==editing&&x.date===modalDate});
+  if(s){
+    var conflict=others.find(function(x){
+      if(!x.start||!x.end)return false;
+      var xs=new Date(x.start), xe=new Date(x.end);
+      return s<xe && e>xs;
+    });
+    if(conflict){
+      alert('この時間は「'+conflict.text+'」（'+time(conflict.start)+'〜'+time(conflict.end)+'）と重なっています。時間を選び直してください。');
+      return;
+    }
+  }
+
+  var savedId=editing||Date.now()+'-'+Math.random();
+  if(editing){
+    var ix=entries.findIndex(function(x){return x.id===editing});
+    entries[ix]={id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()};
+  }else{
+    entries.push({id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()});
+  }
+
+  // 履歴から挿入した記録の直後にある項目は、開始時刻を挿入した記録の終了時刻につなぎ直す。
+  if((entryMode==='history'||entryMode==='edit')&&s){
+    var next=entries
+      .filter(function(x){return x.id!==savedId&&x.date===modalDate&&new Date(x.end)>e})
+      .sort(function(a,b){return new Date(a.end)-new Date(b.end)})[0];
+    if(next && (!next.start || new Date(next.start)>e)){
+      next.start=e.toISOString();
+    }
+  }
+
+  q('#dlg').close();editing=null;entryMode='quick';save()
+}
+document.addEventListener('click',function(ev){var b=ev.target.closest('[data-id]');if(b){var id=b.dataset.id,act=prompt('「編集」または「削除」と入力してください');if(act==='削除'){if(confirm('削除しますか？')){entries=entries.filter(function(x){return x.id!==id});save()}}else if(act==='編集'){var x=entries.find(function(z){return z.id===id});editing=id;entryMode='edit';modalDate=x.date;q('#dtitle').textContent='記録を編集';q('#modalDateLabel').textContent=jpDate(modalDate);q('#text').value=x.text;q('#start').value=x.start?timeOnly(new Date(x.start)):'';q('#end').value=timeOnly(new Date(x.end));q('#dlg').showModal()}return}var d=ev.target.closest('[data-day]');if(d){picked=d.dataset.day;var p=picked.split('-');cursor=new Date(+p[0],+p[1]-1,1);renderCal()}})
 qa('.navbtn').forEach(function(b){b.onclick=function(){qa('.navbtn').forEach(function(x){x.classList.remove('on')});b.classList.add('on');qa('.view').forEach(function(x){x.classList.remove('on')});q('#'+b.dataset.v).classList.add('on');q('#quickbar').style.display=b.dataset.v==='today'?'block':'none'}})
 q('#prev').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1);renderCal()};q('#next').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);renderCal()}
 function makeText(a){var g={};a.slice().sort(function(x,y){return new Date(x.end)-new Date(y.end)}).forEach(function(e){(g[e.date]||(g[e.date]=[])).push(e)});return Object.keys(g).map(function(k){return k+'\n'+g[k].map(function(e){return time(e.start)+'-'+time(e.end)+' '+e.text}).join('\n')}).join('\n\n')}
