@@ -61,7 +61,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.8</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.8.1</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -127,7 +127,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 
 <script>
 (function(){
-var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), insertPrevId=null, insertNextId=null, actionTargetId=null, quickCarryStartIso=null, cursor=new Date(), picked=key(new Date());
+var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), insertPrevId=null, insertNextId=null, actionTargetId=null, quickCarryStartIso=null, editStartDateKey=null, editEndDateKey=null, cursor=new Date(), picked=key(new Date());
 function q(s){return document.querySelector(s)} function qa(s){return Array.from(document.querySelectorAll(s))}
 function pad(n){return String(n).padStart(2,'0')} function key(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function local(d){return key(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}
@@ -163,7 +163,10 @@ function openActionMenu(btn,id){
 function openEdit(id){
   var x=entries.find(function(z){return z.id===id});
   if(!x)return;
-  editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;modalDate=x.date;setEntryFields(entryMode);
+  editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;
+  editStartDateKey=x.start?key(new Date(x.start)):x.date;
+  editEndDateKey=x.end?key(new Date(x.end)):x.date;
+  modalDate=x.date;setEntryFields(entryMode);
   q('#dtitle').textContent='記録を編集';
   q('#modalDateLabel').textContent=jpDate(modalDate);q('#insertContext').innerHTML='';
   q('#text').value=x.text;
@@ -200,7 +203,7 @@ function setEntryFields(mode){
   q('#form').scrollTop=0;
 }
 function openNew(){
-  editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;
+  editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;editStartDateKey=null;editEndDateKey=null;
   var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
   if(!pv){
     var prevDayEnd=previousDayLastEnd(d);
@@ -229,7 +232,7 @@ function openHistoryAdd(){
 function chooseHistorySlot(prevId,nextId){
   var prev=entries.find(function(x){return x.id===prevId}),next=entries.find(function(x){return x.id===nextId});
   if(!prev||!next||!next.start)return;
-  editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;quickCarryStartIso=null;modalDate=prev.date;
+  editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;quickCarryStartIso=null;editStartDateKey=null;editEndDateKey=null;modalDate=prev.date;
   setEntryFields(entryMode);
   q('#dtitle').textContent='この間に記録を追加';
   q('#modalDateLabel').textContent=jpDate(modalDate);
@@ -287,9 +290,10 @@ q('#form').onsubmit=function(ev){
     return;
   }
 
-  var e=q('#end').value?combine(modalDate,q('#end').value):null;
+  var endValue=q('#end').value;
   var startValue=q('#start').value;
-  var s=startValue?combine(modalDate,startValue):null;
+  var e=endValue?combine(entryMode==='edit'&&editEndDateKey?editEndDateKey:modalDate,endValue):null;
+  var s=startValue?combine(entryMode==='edit'&&editStartDateKey?editStartDateKey:modalDate,startValue):null;
   if(entryMode==='quick'&&quickCarryStartIso&&startValue===timeOnly(new Date(quickCarryStartIso))){
     s=new Date(quickCarryStartIso);
   }
@@ -301,11 +305,11 @@ q('#form').onsubmit=function(ev){
   var savedId=editing||Date.now()+'-'+Math.random();
   if(editing){
     var ix=entries.findIndex(function(x){return x.id===editing});
-    entries[ix]={id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()};
+    entries[ix]={id:savedId,text:t,date:key(e),start:s?s.toISOString():null,end:e.toISOString()};
   }else{
     entries.push({id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()});
   }
-  q('#dlg').close();editing=null;entryMode='quick';quickCarryStartIso=null;setEntryFields(entryMode);save()
+  q('#dlg').close();editing=null;entryMode='quick';quickCarryStartIso=null;editStartDateKey=null;editEndDateKey=null;setEntryFields(entryMode);save()
 }
 document.addEventListener('click',function(ev){
   var slot=ev.target.closest('[data-slot-prev]');
