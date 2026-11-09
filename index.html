@@ -48,6 +48,9 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 .slot-name{font-weight:800;font-size:14px;line-height:1.35}
 .slot-time{display:block;font-size:11px;color:#777;margin-top:3px}
 .auto-end{display:none;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:#f1f1ed;color:#555;font-size:12px;line-height:1.5}
+.insert-context{display:none;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:12px;line-height:1.55;color:#555}
+.insert-context .context-row{display:block;white-space:normal}
+.insert-context .context-row+.context-row{margin-top:4px}
 .help-section{padding:12px 0;border-top:1px solid var(--line)}
 .help-section:first-of-type{border-top:0}
 .help-section b{display:block;margin-bottom:4px}
@@ -58,7 +61,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.7</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.7.1</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -102,6 +105,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
       <label class="timefield" id="startField">開始時刻<span>タップして変更</span><input id="start" type="time"></label>
       <label class="timefield" id="endField">終了時刻<span>タップして変更</span><input id="end" type="time"></label>
     </div>
+    <div class="insert-context" id="insertContext"></div>
     <div class="actions"><button type="button" class="cancel" id="cancel">キャンセル</button><button class="save" type="submit">記録する</button></div>
   </form></dialog>
 
@@ -161,7 +165,7 @@ function openEdit(id){
   if(!x)return;
   editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;modalDate=x.date;setEntryFields(entryMode);
   q('#dtitle').textContent='記録を編集';
-  q('#modalDateLabel').textContent=jpDate(modalDate);
+  q('#modalDateLabel').textContent=jpDate(modalDate);q('#insertContext').innerHTML='';
   q('#text').value=x.text;
   q('#start').value=x.start?timeOnly(new Date(x.start)):'';
   q('#end').value=timeOnly(new Date(x.end));
@@ -187,12 +191,13 @@ function setEntryFields(mode){
   q('#startField').style.display=history?'none':'block';
   q('#endField').style.display='block';
   q('#autoEnd').style.display=history?'block':'none';
+  q('#insertContext').style.display=history?'block':'none';
   q('#form').scrollTop=0;
 }
 function openNew(){
   editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
   setEntryFields(entryMode);
-  q('#dtitle').textContent='今まで何してた？';q('#modalDateLabel').textContent=jpDate(modalDate);
+  q('#dtitle').textContent='今まで何してた？';q('#modalDateLabel').textContent=jpDate(modalDate);q('#insertContext').innerHTML='';
   q('#text').value='';q('#end').value=timeOnly(d);q('#start').value=pv?timeOnly(new Date(pv)):'';
   q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
 }
@@ -217,9 +222,10 @@ function chooseHistorySlot(prevId,nextId){
   editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;modalDate=prev.date;
   setEntryFields(entryMode);
   q('#dtitle').textContent='この間に記録を追加';
-  q('#modalDateLabel').textContent=jpDate(modalDate)+'　'+prev.text+' '+time(prev.start)+'〜'+time(prev.end)+' → '+next.text+' '+time(next.start)+'〜'+time(next.end);
+  q('#modalDateLabel').textContent=jpDate(modalDate);
   q('#text').value='';q('#start').value=prev.end?timeOnly(new Date(prev.end)):'';q('#end').value='';
   q('#autoEnd').textContent='開始時刻は前の「'+prev.text+'」の終了時刻 '+time(prev.end)+' に自動設定されます。入力した終了時刻が、次の「'+next.text+'」の新しい開始時刻になります。';
+  q('#insertContext').innerHTML='<span class="context-row">'+esc(prev.text)+' '+time(prev.start)+'〜'+time(prev.end)+'</span><span class="context-row">→ '+esc(next.text)+' '+time(next.start)+'〜'+time(next.end)+'</span>';
   q('#slotDlg').close();q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
 }
 q('#add').onclick=openNew;
