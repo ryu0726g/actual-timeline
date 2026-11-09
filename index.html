@@ -35,11 +35,12 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 .fields input{width:100%;padding:13px 10px;border:1px solid #bbb;border-radius:12px;background:#fff;font-size:17px;font-weight:700}
 .fields.single{grid-template-columns:1fr}
 .slot-list{display:grid;gap:9px;margin-top:12px;max-height:55dvh;overflow:auto}
-.slot-btn{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px;text-align:left}
+.slot-btn{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px;text-align:left;-webkit-tap-highlight-color:transparent;outline:none}
 .slot-btn:active{background:#f0f0ec}
-.slot-arrow{display:block;color:#999;font-size:11px;margin:5px 0}
+.slot-btn:focus,.slot-btn:focus-visible{outline:none;box-shadow:none;border-color:var(--line)}
+.slot-arrow{display:block;color:#999;font-size:11px;margin:7px 0}
 .slot-name{font-weight:800;font-size:14px;line-height:1.35}
-.slot-time{font-size:11px;color:#777;margin-top:3px}
+.slot-time{display:block;font-size:11px;color:#777;margin-top:3px}
 .auto-end{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#f1f1ed;color:#555;font-size:12px;line-height:1.5}
 .actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}.actions button{padding:12px;border-radius:13px;font-weight:800}.cancel{border:1px solid var(--line);background:#fff}.save{border:0;background:#111;color:#fff}
 </style>
@@ -47,7 +48,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.3.2</span></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.4</span></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -117,7 +118,8 @@ function prevEnd(k,end){var a=list(k).filter(function(e){return e.id!==editing&&
 function setEntryFields(mode){
   var history=mode==='history-insert';
   q('#timeFields').classList.toggle('single',history);
-  q('#endField').style.display=history?'none':'block';
+  q('#startField').style.display=history?'none':'block';
+  q('#endField').style.display='block';
   q('#autoEnd').style.display=history?'block':'none';
 }
 function openNew(){
@@ -135,7 +137,7 @@ function openHistoryAdd(){
   for(var i=0;i<a.length-1;i++){
     var prev=a[i],next=a[i+1];
     if(!next.start)continue;
-    slots.push('<button class="slot-btn" data-slot-prev="'+prev.id+'" data-slot-next="'+next.id+'"><span class="slot-name">'+esc(prev.text)+'</span><span class="slot-time">'+time(prev.start)+'〜'+time(prev.end)+'</span><span class="slot-arrow">↓ この間に追加</span><span class="slot-name">'+esc(next.text)+'</span><span class="slot-time">'+time(next.start)+'〜'+time(next.end)+'</span></button>');
+    slots.push('<button class="slot-btn" data-slot-prev="'+prev.id+'" data-slot-next="'+next.id+'"><span class="slot-name">'+esc(prev.text)+'</span><span class="slot-time">元の時間：'+time(prev.start)+'〜'+time(prev.end)+'</span><span class="slot-arrow">↓ この間に追加</span><span class="slot-name">'+esc(next.text)+'</span><span class="slot-time">元の時間：'+time(next.start)+'〜'+time(next.end)+'</span></button>');
   }
   if(!slots.length){alert('追加できる区間がありません。');return}
   q('#slotDateLabel').textContent=jpDate(modalDate);
@@ -149,8 +151,8 @@ function chooseHistorySlot(prevId,nextId){
   setEntryFields(entryMode);
   q('#dtitle').textContent='この間に記録を追加';
   q('#modalDateLabel').textContent=jpDate(modalDate)+'　'+prev.text+' → '+next.text;
-  q('#text').value='';q('#start').value='';q('#end').value='';
-  q('#autoEnd').textContent='終了時刻は次の「'+next.text+'」の開始時刻 '+time(next.start)+' に自動設定されます。';
+  q('#text').value='';q('#start').value=prev.end?timeOnly(new Date(prev.end)):'';q('#end').value='';
+  q('#autoEnd').textContent='開始時刻は前の「'+prev.text+'」の終了時刻 '+time(prev.end)+' に自動設定されます。入力した終了時刻が、次の「'+next.text+'」の新しい開始時刻になります。';
   q('#slotDlg').close();q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
 }
 q('#add').onclick=openNew;
@@ -165,31 +167,35 @@ q('#form').onsubmit=function(ev){
   if(entryMode==='history-insert'){
     var prev=entries.find(function(x){return x.id===insertPrevId});
     var next=entries.find(function(x){return x.id===insertNextId});
-    var s=q('#start').value?combine(modalDate,q('#start').value):null;
-    if(!prev||!next||!next.start){alert('前後の記録を確認できませんでした。もう一度追加位置を選んでください。');return}
-    if(!s){alert('開始時刻を選んでください');return}
-    var nextStart=new Date(next.start);
-    var prevStart=prev.start?new Date(prev.start):null;
-    if(prevStart && s<=prevStart){
-      alert('開始時刻は、前の「'+prev.text+'」の開始時刻 '+time(prev.start)+' より後を選んでください。');
+    if(!prev||!next||!prev.end||!next.end){alert('前後の記録を確認できませんでした。もう一度追加位置を選んでください。');return}
+
+    var s=new Date(prev.end);
+    var e=q('#end').value?combine(modalDate,q('#end').value):null;
+    var nextEnd=new Date(next.end);
+
+    if(!e){alert('終了時刻を選んでください');return}
+    if(e<=s){
+      alert('終了時刻は、前の「'+prev.text+'」が終わった '+time(prev.end)+' より後を選んでください。');
       return;
     }
-    if(s>=nextStart){
-      alert('開始時刻は、次の「'+next.text+'」が始まる '+time(next.start)+' より前を選んでください。');
+    if(e>=nextEnd){
+      alert('終了時刻は、次の「'+next.text+'」が終わる '+time(next.end)+' より前を選んでください。');
       return;
     }
 
-    prev.end=s.toISOString();
     entries.push({
       id:Date.now()+'-'+Math.random(),
       text:t,
       date:modalDate,
       start:s.toISOString(),
-      end:nextStart.toISOString()
+      end:e.toISOString()
     });
+
+    next.start=e.toISOString();
 
     q('#dlg').close();
     entryMode='quick';insertPrevId=null;insertNextId=null;
+    setEntryFields(entryMode);
     save();
     return;
   }
