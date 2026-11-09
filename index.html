@@ -61,7 +61,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.7.1</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.2.8</span><button class="help-btn" id="helpBtn" aria-label="使い方">?</button></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -100,11 +100,11 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
     <h3 id="dtitle">今まで何してた？</h3>
     <div class="sub" id="modalDateLabel" style="margin-bottom:12px"></div>
     <textarea id="text" placeholder="例：卒論のフォームを修正した" required></textarea>
-    <div class="auto-end" id="autoEnd"></div>
     <div class="fields" id="timeFields">
       <label class="timefield" id="startField">開始時刻<span>タップして変更</span><input id="start" type="time"></label>
       <label class="timefield" id="endField">終了時刻<span>タップして変更</span><input id="end" type="time"></label>
     </div>
+    <div class="auto-end" id="autoEnd"></div>
     <div class="insert-context" id="insertContext"></div>
     <div class="actions"><button type="button" class="cancel" id="cancel">キャンセル</button><button class="save" type="submit">記録する</button></div>
   </form></dialog>
@@ -127,7 +127,7 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 
 <script>
 (function(){
-var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), insertPrevId=null, insertNextId=null, actionTargetId=null, cursor=new Date(), picked=key(new Date());
+var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), insertPrevId=null, insertNextId=null, actionTargetId=null, quickCarryStartIso=null, cursor=new Date(), picked=key(new Date());
 function q(s){return document.querySelector(s)} function qa(s){return Array.from(document.querySelectorAll(s))}
 function pad(n){return String(n).padStart(2,'0')} function key(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function local(d){return key(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}
@@ -163,7 +163,7 @@ function openActionMenu(btn,id){
 function openEdit(id){
   var x=entries.find(function(z){return z.id===id});
   if(!x)return;
-  editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;modalDate=x.date;setEntryFields(entryMode);
+  editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;modalDate=x.date;setEntryFields(entryMode);
   q('#dtitle').textContent='記録を編集';
   q('#modalDateLabel').textContent=jpDate(modalDate);q('#insertContext').innerHTML='';
   q('#text').value=x.text;
@@ -184,6 +184,11 @@ function deleteEntry(id){
   }
 }
 function prevEnd(k,end){var a=list(k).filter(function(e){return e.id!==editing&&new Date(e.end)<=end});return a.length?a[a.length-1].end:null}
+function previousDayLastEnd(d){
+  var prevDay=new Date(d.getFullYear(),d.getMonth(),d.getDate()-1,12,0,0,0);
+  var a=list(key(prevDay));
+  return a.length?a[a.length-1].end:null;
+}
 function setEntryFields(mode){
   var history=mode==='history-insert';
   q('#form').classList.toggle('history-insert-mode',history);
@@ -195,7 +200,12 @@ function setEntryFields(mode){
   q('#form').scrollTop=0;
 }
 function openNew(){
-  editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
+  editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;quickCarryStartIso=null;
+  var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
+  if(!pv){
+    var prevDayEnd=previousDayLastEnd(d);
+    if(prevDayEnd){pv=prevDayEnd;quickCarryStartIso=prevDayEnd}
+  }
   setEntryFields(entryMode);
   q('#dtitle').textContent='今まで何してた？';q('#modalDateLabel').textContent=jpDate(modalDate);q('#insertContext').innerHTML='';
   q('#text').value='';q('#end').value=timeOnly(d);q('#start').value=pv?timeOnly(new Date(pv)):'';
@@ -219,7 +229,7 @@ function openHistoryAdd(){
 function chooseHistorySlot(prevId,nextId){
   var prev=entries.find(function(x){return x.id===prevId}),next=entries.find(function(x){return x.id===nextId});
   if(!prev||!next||!next.start)return;
-  editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;modalDate=prev.date;
+  editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;quickCarryStartIso=null;modalDate=prev.date;
   setEntryFields(entryMode);
   q('#dtitle').textContent='この間に記録を追加';
   q('#modalDateLabel').textContent=jpDate(modalDate);
@@ -278,7 +288,11 @@ q('#form').onsubmit=function(ev){
   }
 
   var e=q('#end').value?combine(modalDate,q('#end').value):null;
-  var s=q('#start').value?combine(modalDate,q('#start').value):null;
+  var startValue=q('#start').value;
+  var s=startValue?combine(modalDate,startValue):null;
+  if(entryMode==='quick'&&quickCarryStartIso&&startValue===timeOnly(new Date(quickCarryStartIso))){
+    s=new Date(quickCarryStartIso);
+  }
   if(!e)return;
   if(entryMode==='edit'&&!s){alert('開始時刻を選んでください');return}
   if(!s&&entryMode==='quick'){var p=prevEnd(modalDate,e);if(p)s=new Date(p)}
@@ -291,7 +305,7 @@ q('#form').onsubmit=function(ev){
   }else{
     entries.push({id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()});
   }
-  q('#dlg').close();editing=null;entryMode='quick';setEntryFields(entryMode);save()
+  q('#dlg').close();editing=null;entryMode='quick';quickCarryStartIso=null;setEntryFields(entryMode);save()
 }
 document.addEventListener('click',function(ev){
   var slot=ev.target.closest('[data-slot-prev]');
