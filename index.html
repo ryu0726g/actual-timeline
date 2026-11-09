@@ -32,13 +32,22 @@ nav{position:fixed;bottom:0;left:0;right:0;background:rgba(250,250,248,.95);back
 dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 25px 70px rgba(0,0,0,.25)}dialog::backdrop{background:rgba(0,0,0,.28)}.modal{padding:18px}.modal h3{margin:0 0 10px}.modal textarea{width:100%;min-height:110px;border:1px solid #ccc;border-radius:14px;padding:13px;font-size:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .timefield{display:block;font-size:12px;font-weight:800;color:#333}
 .timefield span{display:block;font-size:10px;font-weight:500;color:#888;margin:2px 0 6px}
-.fields input{width:100%;padding:13px 10px;border:1px solid #bbb;border-radius:12px;background:#fff;font-size:17px;font-weight:700}.actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}.actions button{padding:12px;border-radius:13px;font-weight:800}.cancel{border:1px solid var(--line);background:#fff}.save{border:0;background:#111;color:#fff}
+.fields input{width:100%;padding:13px 10px;border:1px solid #bbb;border-radius:12px;background:#fff;font-size:17px;font-weight:700}
+.fields.single{grid-template-columns:1fr}
+.slot-list{display:grid;gap:9px;margin-top:12px;max-height:55dvh;overflow:auto}
+.slot-btn{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px;text-align:left}
+.slot-btn:active{background:#f0f0ec}
+.slot-arrow{display:block;color:#999;font-size:11px;margin:5px 0}
+.slot-name{font-weight:800;font-size:14px;line-height:1.35}
+.slot-time{font-size:11px;color:#777;margin-top:3px}
+.auto-end{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#f1f1ed;color:#555;font-size:12px;line-height:1.5}
+.actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}.actions button{padding:12px;border-radius:13px;font-weight:800}.cancel{border:1px solid var(--line);background:#fff}.save{border:0;background:#111;color:#fff}
 </style>
 </head>
 <body>
 <div class="wrap">
   <section id="today" class="view on">
-    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.3.1</span></div><div class="sub" id="now"></div>
+    <div class="titleline"><h1>今日の実績</h1><span class="version">ver.3.2</span></div><div class="sub" id="now"></div>
     <h2>今日のタイムライン <span id="count" style="float:right;color:#777;font-size:12px"></span></h2>
     <div id="timeline"></div>
   </section>
@@ -64,20 +73,30 @@ dialog{border:0;border-radius:22px;width:min(92vw,520px);padding:0;box-shadow:0 
 <div class="quickbar" id="quickbar"><div class="quickbar-inner"><button class="mainbtn" id="add">＋ 今まで何してた？</button></div></div>
 <nav><div class="navi"><button class="navbtn on" data-v="today">今日</button><button class="navbtn" data-v="history">履歴</button><button class="navbtn" data-v="data">データ</button></div></nav>
 
+<dialog id="slotDlg">
+    <div class="modal">
+      <h3>どこに追加しますか？</h3>
+      <div class="sub" id="slotDateLabel" style="margin-bottom:8px"></div>
+      <div class="slot-list" id="slotList"></div>
+      <div class="actions"><button type="button" class="cancel" id="cancelSlot">キャンセル</button><div></div></div>
+    </div>
+  </dialog>
+
 <dialog id="dlg"><form method="dialog" class="modal" id="form">
     <h3 id="dtitle">今まで何してた？</h3>
     <div class="sub" id="modalDateLabel" style="margin-bottom:12px"></div>
     <textarea id="text" placeholder="例：卒論のフォームを修正した" required></textarea>
-    <div class="fields">
-      <label class="timefield">開始時刻<span>タップして変更</span><input id="start" type="time"></label>
-      <label class="timefield">終了時刻<span>タップして変更</span><input id="end" type="time" required></label>
+    <div class="fields" id="timeFields">
+      <label class="timefield" id="startField">開始時刻<span>タップして変更</span><input id="start" type="time"></label>
+      <label class="timefield" id="endField">終了時刻<span>タップして変更</span><input id="end" type="time"></label>
     </div>
+    <div class="auto-end" id="autoEnd"></div>
     <div class="actions"><button type="button" class="cancel" id="cancel">キャンセル</button><button class="save" type="submit">記録する</button></div>
   </form></dialog>
 
 <script>
 (function(){
-var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), cursor=new Date(), picked=key(new Date());
+var KEY='actualTimeline.v1', entries=[], editing=null, entryMode='quick', modalDate=key(new Date()), insertPrevId=null, insertNextId=null, cursor=new Date(), picked=key(new Date());
 function q(s){return document.querySelector(s)} function qa(s){return Array.from(document.querySelectorAll(s))}
 function pad(n){return String(n).padStart(2,'0')} function key(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function local(d){return key(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}
@@ -95,39 +114,92 @@ function renderToday(){var a=list(key(new Date()));q('#count').textContent=a.len
 function renderCal(){var y=cursor.getFullYear(),m=cursor.getMonth();q('#month').textContent=y+'年 '+(m+1)+'月';q('#week').innerHTML=['日','月','火','水','木','金','土'].map(function(x){return '<div class="wd">'+x+'</div>'}).join('');var first=new Date(y,m,1),start=first.getDay(),last=new Date(y,m+1,0).getDate(),html='';for(var i=0;i<42;i++){var dt;if(i<start)dt=new Date(y,m,i-start+1);else if(i>=start+last)dt=new Date(y,m+1,i-start-last+1);else dt=new Date(y,m,i-start+1);var k=key(dt),cls='day'+(k===picked?' sel':'')+(k===key(new Date())?' today':'');html+='<button class="'+cls+'" data-day="'+k+'">'+dt.getDate()+(list(k).length?'<span class="mark"></span>':'')+'</button>'}q('#days').innerHTML=html;q('#pickedTitle').textContent=picked;draw(q('#picked'),list(picked))}
 function render(){renderToday();renderCal()}
 function prevEnd(k,end){var a=list(k).filter(function(e){return e.id!==editing&&new Date(e.end)<=end});return a.length?a[a.length-1].end:null}
+function setEntryFields(mode){
+  var history=mode==='history-insert';
+  q('#timeFields').classList.toggle('single',history);
+  q('#endField').style.display=history?'none':'block';
+  q('#autoEnd').style.display=history?'block':'none';
+}
 function openNew(){
-  editing=null;entryMode='quick';var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
+  editing=null;entryMode='quick';insertPrevId=null;insertNextId=null;var d=new Date(),pv=prevEnd(key(d),d);modalDate=key(d);
+  setEntryFields(entryMode);
   q('#dtitle').textContent='今まで何してた？';q('#modalDateLabel').textContent=jpDate(modalDate);
   q('#text').value='';q('#end').value=timeOnly(d);q('#start').value=pv?timeOnly(new Date(pv)):'';
   q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
 }
 function openHistoryAdd(){
-  editing=null;entryMode='history';modalDate=picked;
-  q('#dtitle').textContent='この日に記録を追加';q('#modalDateLabel').textContent=jpDate(modalDate);
-  q('#text').value='';q('#start').value='';q('#end').value='';
-  q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
+  modalDate=picked;
+  var a=list(modalDate);
+  if(a.length<2){alert('間に追加するには、この日に2件以上の記録が必要です。');return}
+  var slots=[];
+  for(var i=0;i<a.length-1;i++){
+    var prev=a[i],next=a[i+1];
+    if(!next.start)continue;
+    slots.push('<button class="slot-btn" data-slot-prev="'+prev.id+'" data-slot-next="'+next.id+'"><span class="slot-name">'+esc(prev.text)+'</span><span class="slot-time">'+time(prev.start)+'〜'+time(prev.end)+'</span><span class="slot-arrow">↓ この間に追加</span><span class="slot-name">'+esc(next.text)+'</span><span class="slot-time">'+time(next.start)+'〜'+time(next.end)+'</span></button>');
+  }
+  if(!slots.length){alert('追加できる区間がありません。');return}
+  q('#slotDateLabel').textContent=jpDate(modalDate);
+  q('#slotList').innerHTML=slots.join('');
+  q('#slotDlg').showModal();
 }
-q('#add').onclick=openNew;q('#addHistory').onclick=openHistoryAdd;q('#cancel').onclick=function(){q('#dlg').close()}
+function chooseHistorySlot(prevId,nextId){
+  var prev=entries.find(function(x){return x.id===prevId}),next=entries.find(function(x){return x.id===nextId});
+  if(!prev||!next||!next.start)return;
+  editing=null;entryMode='history-insert';insertPrevId=prevId;insertNextId=nextId;modalDate=prev.date;
+  setEntryFields(entryMode);
+  q('#dtitle').textContent='この間に記録を追加';
+  q('#modalDateLabel').textContent=jpDate(modalDate)+'　'+prev.text+' → '+next.text;
+  q('#text').value='';q('#start').value='';q('#end').value='';
+  q('#autoEnd').textContent='終了時刻は次の「'+next.text+'」の開始時刻 '+time(next.start)+' に自動設定されます。';
+  q('#slotDlg').close();q('#dlg').showModal();setTimeout(function(){q('#text').focus()},100)
+}
+q('#add').onclick=openNew;
+q('#addHistory').onclick=openHistoryAdd;
+q('#cancel').onclick=function(){q('#dlg').close()};
+q('#cancelSlot').onclick=function(){q('#slotDlg').close()}
 q('#form').onsubmit=function(ev){
   ev.preventDefault();
-  var t=q('#text').value.trim(), e=combine(modalDate,q('#end').value), s=q('#start').value?combine(modalDate,q('#start').value):null;
-  if(!t||!e)return;
-  if((entryMode==='history'||entryMode==='edit')&&!s){alert('開始時刻を選んでください');return}
-  if(!s&&entryMode==='quick'){var p=prevEnd(modalDate,e);if(p)s=new Date(p)}
-  if(s&&s>=e){alert('終了時刻は開始時刻より後にしてください');return}
+  var t=q('#text').value.trim();
+  if(!t)return;
 
-  var others=entries.filter(function(x){return x.id!==editing&&x.date===modalDate});
-  if(s){
-    var conflict=others.find(function(x){
-      if(!x.start||!x.end)return false;
-      var xs=new Date(x.start), xe=new Date(x.end);
-      return s<xe && e>xs;
-    });
-    if(conflict){
-      alert('この時間は「'+conflict.text+'」（'+time(conflict.start)+'〜'+time(conflict.end)+'）と重なっています。時間を選び直してください。');
+  if(entryMode==='history-insert'){
+    var prev=entries.find(function(x){return x.id===insertPrevId});
+    var next=entries.find(function(x){return x.id===insertNextId});
+    var s=q('#start').value?combine(modalDate,q('#start').value):null;
+    if(!prev||!next||!next.start){alert('前後の記録を確認できませんでした。もう一度追加位置を選んでください。');return}
+    if(!s){alert('開始時刻を選んでください');return}
+    var nextStart=new Date(next.start);
+    var prevStart=prev.start?new Date(prev.start):null;
+    if(prevStart && s<=prevStart){
+      alert('開始時刻は、前の「'+prev.text+'」の開始時刻 '+time(prev.start)+' より後を選んでください。');
       return;
     }
+    if(s>=nextStart){
+      alert('開始時刻は、次の「'+next.text+'」が始まる '+time(next.start)+' より前を選んでください。');
+      return;
+    }
+
+    prev.end=s.toISOString();
+    entries.push({
+      id:Date.now()+'-'+Math.random(),
+      text:t,
+      date:modalDate,
+      start:s.toISOString(),
+      end:nextStart.toISOString()
+    });
+
+    q('#dlg').close();
+    entryMode='quick';insertPrevId=null;insertNextId=null;
+    save();
+    return;
   }
+
+  var e=q('#end').value?combine(modalDate,q('#end').value):null;
+  var s=q('#start').value?combine(modalDate,q('#start').value):null;
+  if(!e)return;
+  if(entryMode==='edit'&&!s){alert('開始時刻を選んでください');return}
+  if(!s&&entryMode==='quick'){var p=prevEnd(modalDate,e);if(p)s=new Date(p)}
+  if(s&&s>=e){alert('終了時刻は開始時刻より後にしてください');return}
 
   var savedId=editing||Date.now()+'-'+Math.random();
   if(editing){
@@ -136,20 +208,12 @@ q('#form').onsubmit=function(ev){
   }else{
     entries.push({id:savedId,text:t,date:modalDate,start:s?s.toISOString():null,end:e.toISOString()});
   }
-
-  // 履歴から挿入した記録の直後にある項目は、開始時刻を挿入した記録の終了時刻につなぎ直す。
-  if((entryMode==='history'||entryMode==='edit')&&s){
-    var next=entries
-      .filter(function(x){return x.id!==savedId&&x.date===modalDate&&new Date(x.end)>e})
-      .sort(function(a,b){return new Date(a.end)-new Date(b.end)})[0];
-    if(next && (!next.start || new Date(next.start)>e)){
-      next.start=e.toISOString();
-    }
-  }
-
-  q('#dlg').close();editing=null;entryMode='quick';save()
+  q('#dlg').close();editing=null;entryMode='quick';setEntryFields(entryMode);save()
 }
-document.addEventListener('click',function(ev){var b=ev.target.closest('[data-id]');if(b){var id=b.dataset.id,act=prompt('「編集」または「削除」と入力してください');if(act==='削除'){if(confirm('削除しますか？')){entries=entries.filter(function(x){return x.id!==id});save()}}else if(act==='編集'){var x=entries.find(function(z){return z.id===id});editing=id;entryMode='edit';modalDate=x.date;q('#dtitle').textContent='記録を編集';q('#modalDateLabel').textContent=jpDate(modalDate);q('#text').value=x.text;q('#start').value=x.start?timeOnly(new Date(x.start)):'';q('#end').value=timeOnly(new Date(x.end));q('#dlg').showModal()}return}var d=ev.target.closest('[data-day]');if(d){picked=d.dataset.day;var p=picked.split('-');cursor=new Date(+p[0],+p[1]-1,1);renderCal()}})
+document.addEventListener('click',function(ev){
+var slot=ev.target.closest('[data-slot-prev]');
+if(slot){chooseHistorySlot(slot.dataset.slotPrev,slot.dataset.slotNext);return}
+var b=ev.target.closest('[data-id]');if(b){var id=b.dataset.id,act=prompt('「編集」または「削除」と入力してください');if(act==='削除'){if(confirm('削除しますか？')){entries=entries.filter(function(x){return x.id!==id});save()}}else if(act==='編集'){var x=entries.find(function(z){return z.id===id});editing=id;entryMode='edit';insertPrevId=null;insertNextId=null;modalDate=x.date;setEntryFields(entryMode);q('#dtitle').textContent='記録を編集';q('#modalDateLabel').textContent=jpDate(modalDate);q('#text').value=x.text;q('#start').value=x.start?timeOnly(new Date(x.start)):'';q('#end').value=timeOnly(new Date(x.end));q('#dlg').showModal()}return}var d=ev.target.closest('[data-day]');if(d){picked=d.dataset.day;var p=picked.split('-');cursor=new Date(+p[0],+p[1]-1,1);renderCal()}})
 qa('.navbtn').forEach(function(b){b.onclick=function(){qa('.navbtn').forEach(function(x){x.classList.remove('on')});b.classList.add('on');qa('.view').forEach(function(x){x.classList.remove('on')});q('#'+b.dataset.v).classList.add('on');q('#quickbar').style.display=b.dataset.v==='today'?'block':'none'}})
 q('#prev').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1);renderCal()};q('#next').onclick=function(){cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);renderCal()}
 function makeText(a){var g={};a.slice().sort(function(x,y){return new Date(x.end)-new Date(y.end)}).forEach(function(e){(g[e.date]||(g[e.date]=[])).push(e)});return Object.keys(g).map(function(k){return k+'\n'+g[k].map(function(e){return time(e.start)+'-'+time(e.end)+' '+e.text}).join('\n')}).join('\n\n')}
